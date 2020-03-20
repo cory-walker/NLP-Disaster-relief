@@ -27,6 +27,7 @@ def load_data(messages_filepath, categories_filepath):
 
 def clean_data(df):
     df.drop_duplicates(subset = 'id', inplace = True)
+    df["original"].fillna(" ", inplace=True)
     df = df.dropna()
     df = df.reset_index(drop=True)
     

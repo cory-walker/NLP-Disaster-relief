@@ -8,9 +8,9 @@ from nltk.tokenize import word_tokenize
 from flask import Flask
 from flask import render_template, request, jsonify
 from plotly.graph_objs import Bar
-from sklearn.externals import joblib
+#from sklearn.externals import joblib
 from sqlalchemy import create_engine
-
+import joblib
 
 app = Flask(__name__)
 
@@ -38,50 +38,50 @@ model = joblib.load("../models/classifier.pkl")
 @app.route('/index')
 def index():
     
-    # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
+ 
+    # Graph 1 generation -------------------------------------------------------
     grph_one = []
-    genre_counts = df.groupby('genre').count()['message']
-    genre_names = list(genre_counts.index)
-    
+    categories_sum = df.drop(columns=['id','message','original','genre']).sum().sort_values(ascending=False)
+    categories_counts = categories_sum.values
+    categories_names = list(map(lambda st: str.replace(st, "_", " "), categories_sum.index))
     grph_one.append(
-        bar(
-            x=genre_names,
-            y=genre_counts
+        Bar(
+             x=categories_names,
+             y=categories_counts
         )
+        
     )
     
-    layout_one = dict(title = 'Message genre distribution',
-                      xaxis = dict(title = 'Genre'),
-                      yaxis = dict(title = 'Count'),
+    layout_one = dict(title = 'Message Category Distribution',
+                      xaxis = dict(title='Category'),
+                      yaxis = dict(title='Amount'),
                      )
     
-    # create visuals
-    # TODO: Below is an example - modify to create your own visuals
-    graphs = [
-        {
-            'data': [
-                Bar(
-                    x=genre_names,
-                    y=genre_counts
-                )
-            ],
+    # Graph 2 generation -------------------------------------------------------
+    grph_two = []
+    genre_tally = df['genre'].value_counts()
+    
+    grph_two.append(
+            Bar(
+                x=genre_tally.index,
+                y=genre_tally.values
+            )
+    )
+    
+    layout_two = dict(title = 'Genre Distribution',
+                      xaxis = dict(title='Genre'),
+                      yaxis = dict(title='Amount'),
+                     )
+        
+    # Visuals
+    figures = []
+    figures.append(dict(data=grph_one, layout=layout_one))
+    figures.append(dict(data=grph_two, layout=layout_two))
 
-            'layout': {
-                'title': 'Distribution of Message Genres',
-                'yaxis': {
-                    'title': "Count"
-                },
-                'xaxis': {
-                    'title': "Genre"
-                }
-            }
-        }
-    ]
     
     # encode plotly graphs in JSON
-    ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
-    graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
+    ids = ["graph-{}".format(i) for i, _ in enumerate(figures)]
+    graphJSON = json.dumps(figures, cls=plotly.utils.PlotlyJSONEncoder)
     
     # render web page with plotly graphs
     return render_template('master.html', ids=ids, graphJSON=graphJSON)
