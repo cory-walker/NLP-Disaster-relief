@@ -1,3 +1,4 @@
+# Imports ------------------------------------------------
 import sys
 import pandas as pd
 import numpy as np
@@ -23,7 +24,12 @@ nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
 
+# Functions ------------------------------------------------
+
 def load_data(database_filepath):
+    # Load data from the SQL lite database and produce
+    # messages, category values, and category names
+    
     engine = create_engine('sqlite:///' + database_filepath)
     df = pd.read_sql_table('messages', engine)
     X = df.message.values
@@ -33,23 +39,32 @@ def load_data(database_filepath):
 
 
 def tokenize(text):
-    stop_words = stopwords.words("english")
-    lemmatizer = WordNetLemmatizer()
+    # Turns messages into word tokens
     
+    #Remove common stop words
+    stop_words = stopwords.words("english")
+    
+    #Remove non-letters and non-numbers
     text = re.sub(r"[^a-zA-Z0-9]", " ", text.lower())
+    
+    #Tokenize, then lowercase and remove extra whitespace in tokens
     tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(word).lower().strip() for word in tokens if word.lower().strip() not in stop_words]
 
     return tokens
 
-
 def build_model():
+    # Builds the Multi output classifer random forest model
+    
+    #Create a pipeline
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
         ('clf', MultiOutputClassifier(OneVsRestClassifier(RandomForestClassifier())))
     ])
     
+    #Set parameters for grid search
     parameters = {
          #'tfidf__smooth_idf':[True, False],
          #'clf__estimator__estimator__C': [1, 2, 5],
@@ -61,12 +76,15 @@ def build_model():
          #'clf__min_samples_split': [2, 3, 4],
     }
 
+    # Generate model
     cv = GridSearchCV(pipeline, param_grid=parameters, scoring='precision_samples', cv = 5)
     
     return cv
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
+    # Produce accuracy measures for the model
+    
     Y_pred = model.predict(X_test)
     print(classification_report(Y_test, Y_pred, target_names = category_names))
     print("\nAccuracy")
@@ -75,10 +93,14 @@ def evaluate_model(model, X_test, Y_test, category_names):
 
 
 def save_model(model, model_filepath):
+    # Saves the model
+    
     dump(model, model_filepath)
 
 
 def main():
+    # Main process, to keep everything running in order
+    
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
         print('Loading data...\n    DATABASE: {} ...'.format(database_filepath), end='')
@@ -110,6 +132,7 @@ def main():
               'save the model to as the second argument. \n\nExample: python '\
               'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
 
+# Main ------------------------------------------------
 
 if __name__ == '__main__':
     main()
